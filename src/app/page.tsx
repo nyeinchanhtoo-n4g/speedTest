@@ -36,6 +36,60 @@ const initialResults: Results = {
   isp: '',
 };
 
+// Constants for test configuration
+const TEST_CONFIG = {
+  ITERATIONS: 50,
+  TIMEOUT_MS: 10000,
+  DELAY_BETWEEN_TESTS_MS: 100,
+  UPLOAD_SIZE: 5 * 1024 * 1024, // 5MB
+  MIN_VALID_SPEED: 0.1, // 0.1 Mbps
+  MAX_REASONABLE_SPEED: 10000, // 10 Gbps
+  IQR_MULTIPLIER: 1.5, // For outlier detection
+};
+
+// Helper function to calculate statistics
+function calculateStats(speeds: number[]) {
+  const sortedSpeeds = [...speeds].sort((a, b) => a - b);
+  const q1Index = Math.floor(sortedSpeeds.length * 0.25);
+  const q3Index = Math.floor(sortedSpeeds.length * 0.75);
+  const q1 = sortedSpeeds[q1Index];
+  const q3 = sortedSpeeds[q3Index];
+  const iqr = q3 - q1;
+  const lowerBound = q1 - TEST_CONFIG.IQR_MULTIPLIER * iqr;
+  const upperBound = q3 + TEST_CONFIG.IQR_MULTIPLIER * iqr;
+  
+  const filteredSpeeds = sortedSpeeds.filter(speed => 
+    speed >= Math.max(lowerBound, TEST_CONFIG.MIN_VALID_SPEED) && 
+    speed <= Math.min(upperBound, TEST_CONFIG.MAX_REASONABLE_SPEED)
+  );
+  
+  const average = filteredSpeeds.reduce((a, b) => a + b, 0) / filteredSpeeds.length;
+  const median = filteredSpeeds[Math.floor(filteredSpeeds.length / 2)];
+  
+  return {
+    average,
+    median,
+    min: filteredSpeeds[0],
+    max: filteredSpeeds[filteredSpeeds.length - 1],
+    validCount: speeds.length,
+    filteredCount: filteredSpeeds.length,
+  };
+}
+
+// Helper function to log test progress
+function logTestProgress(type: string, iteration: number, total: number, speed: number, stats?: any) {
+  console.log(`${type} iteration ${iteration + 1}/${total}: ${speed.toFixed(2)} Mbps`);
+  if (stats) {
+    console.log(`${type} test completed:`, {
+      ...stats,
+      average: stats.average.toFixed(2) + ' Mbps',
+      median: stats.median.toFixed(2) + ' Mbps',
+      min: stats.min.toFixed(2) + ' Mbps',
+      max: stats.max.toFixed(2) + ' Mbps',
+    });
+  }
+}
+
 export default function Home() {
   // State management
   const [testing, setTesting] = useState(false);
@@ -137,6 +191,21 @@ export default function Home() {
   // Helper function to delay execution
   const delay = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
+  // Helper function to generate random data
+  const generateRandomData = (size: number): Uint8Array => {
+    const data = new Uint8Array(size);
+    const pattern = new Uint8Array(1024); // 1KB pattern
+    for (let i = 0; i < pattern.length; i++) {
+      pattern[i] = Math.floor(Math.random() * 256);
+    }
+    
+    // Repeat the pattern to fill the entire buffer
+    for (let i = 0; i < size; i += pattern.length) {
+      data.set(pattern.slice(0, Math.min(pattern.length, size - i)), i);
+    }
+    return data;
+  };
+
   // Helper function to measure a single download test
   const singleDownloadTest = useCallback(async (signal: AbortSignal): Promise<number> => {
     const response = await fetch(addCacheBuster('/api/speedtest/download'), { 
@@ -176,7 +245,6 @@ export default function Home() {
     const formData = new FormData();
     formData.append('file', blob, 'speedtest.dat');
 
-    const startTime = Date.now();
     const response = await fetch(addCacheBuster('/api/speedtest/upload'), {
       method: 'POST',
       body: formData,
@@ -188,17 +256,144 @@ export default function Home() {
       }
     });
 
-    if (!response.ok) throw new Error('Upload failed');
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Upload failed');
+    }
     
-    // Get the server's timing data
     const data = await response.json();
-    if (!data.metrics || !data.metrics.mbps) {
+    if (!data.metrics || typeof data.metrics.mbps !== 'number') {
       throw new Error('Invalid server response');
     }
 
-    // Use the server's calculated speed
     return data.metrics.mbps;
   }, [addCacheBuster]);
+
+  // Optimized download measurement with multiple iterations
+  const measureDownload = useCallback(async (onProgress: (progress: number) => void): Promise<number> => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const speeds: number[] = [];
+    
+    try {
+      console.log('Starting download test with', TEST_CONFIG.ITERATIONS, 'iterations...');
+      
+      for (let i = 0; i < TEST_CONFIG.ITERATIONS; i++) {
+        try {
+          // Create a new controller for each test
+          const testController = new AbortController();
+          const testSignal = testController.signal;
+          
+          // Add a timeout for each test
+          const timeoutId = setTimeout(() => testController.abort(), TEST_CONFIG.TIMEOUT_MS);
+          
+          const speed = await singleDownloadTest(testSignal);
+          clearTimeout(timeoutId);
+          
+          if (speed >= TEST_CONFIG.MIN_VALID_SPEED && speed <= TEST_CONFIG.MAX_REASONABLE_SPEED) {
+            speeds.push(speed);
+            setCurrentSpeed(speed);
+            onProgress((i + 1) * (100 / TEST_CONFIG.ITERATIONS));
+            logTestProgress('Download', i, TEST_CONFIG.ITERATIONS, speed);
+          }
+          
+          // Add a small delay between tests
+          if (i < TEST_CONFIG.ITERATIONS - 1) {
+            await delay(TEST_CONFIG.DELAY_BETWEEN_TESTS_MS);
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            if (signal.aborted) throw error; // Only rethrow if main controller was aborted
+            console.warn(`Download iteration ${i + 1} timed out`);
+          } else {
+            console.warn(`Download iteration ${i + 1} failed:`, error);
+          }
+          // Continue with next iteration on error
+          continue;
+        }
+      }
+
+      if (speeds.length === 0) {
+        throw new Error('All download tests failed');
+      }
+
+      const stats = calculateStats(speeds);
+      logTestProgress('Download', TEST_CONFIG.ITERATIONS, TEST_CONFIG.ITERATIONS, stats.average, stats);
+      return stats.average;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Download measurement aborted');
+        return 0;
+      }
+      console.error('Download measurement failed:', error);
+      throw error;
+    }
+  }, [setCurrentSpeed, singleDownloadTest, delay]);
+
+  // Optimized upload measurement with multiple iterations
+  const measureUpload = useCallback(async (onProgress: (progress: number) => void): Promise<number> => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const speeds: number[] = [];
+    
+    try {
+      console.log('Starting upload test with', TEST_CONFIG.ITERATIONS, 'iterations...');
+      
+      // Create test data once using the pattern method
+      const data = generateRandomData(TEST_CONFIG.UPLOAD_SIZE);
+      const blob = new Blob([data]);
+
+      for (let i = 0; i < TEST_CONFIG.ITERATIONS; i++) {
+        try {
+          // Create a new controller for each test
+          const testController = new AbortController();
+          const testSignal = testController.signal;
+          
+          // Add a timeout for each test
+          const timeoutId = setTimeout(() => testController.abort(), TEST_CONFIG.TIMEOUT_MS);
+          
+          const speed = await singleUploadTest(blob, testSignal);
+          clearTimeout(timeoutId);
+          
+          if (speed >= TEST_CONFIG.MIN_VALID_SPEED && speed <= TEST_CONFIG.MAX_REASONABLE_SPEED) {
+            speeds.push(speed);
+            setCurrentSpeed(speed);
+            onProgress((i + 1) * (100 / TEST_CONFIG.ITERATIONS));
+            logTestProgress('Upload', i, TEST_CONFIG.ITERATIONS, speed);
+          }
+          
+          // Add a small delay between tests
+          if (i < TEST_CONFIG.ITERATIONS - 1) {
+            await delay(TEST_CONFIG.DELAY_BETWEEN_TESTS_MS);
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            if (signal.aborted) throw error; // Only rethrow if main controller was aborted
+            console.warn(`Upload iteration ${i + 1} timed out`);
+          } else {
+            console.warn(`Upload iteration ${i + 1} failed:`, error);
+          }
+          // Continue with next iteration on error
+          continue;
+        }
+      }
+
+      if (speeds.length === 0) {
+        throw new Error('All upload tests failed');
+      }
+
+      const stats = calculateStats(speeds);
+      logTestProgress('Upload', TEST_CONFIG.ITERATIONS, TEST_CONFIG.ITERATIONS, stats.average, stats);
+      return stats.average;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Upload measurement aborted');
+        return 0;
+      }
+      console.error('Upload measurement failed:', error);
+      throw error;
+    }
+  }, [setCurrentSpeed, singleUploadTest, delay]);
 
   // Optimized ping measurement with abort controller
   const measurePing = useCallback(async (): Promise<number> => {
@@ -229,164 +424,6 @@ export default function Home() {
       throw error;
     }
   }, [addCacheBuster]);
-
-  // Optimized download measurement with multiple iterations
-  const measureDownload = useCallback(async (onProgress: (progress: number) => void): Promise<number> => {
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const iterations = 50;
-    const speeds: number[] = [];
-    
-    try {
-      console.log('Starting download test with', iterations, 'iterations...');
-      
-      for (let i = 0; i < iterations; i++) {
-        try {
-          // Create a new controller for each test
-          const testController = new AbortController();
-          const testSignal = testController.signal;
-          
-          // Add a timeout for each test
-          const timeoutId = setTimeout(() => testController.abort(), 10000); // 10 second timeout
-          
-          const speed = await singleDownloadTest(testSignal);
-          clearTimeout(timeoutId);
-          
-          if (speed > 0) {
-            speeds.push(speed);
-            setCurrentSpeed(speed);
-            onProgress((i + 1) * (100 / iterations));
-            console.log(`Download iteration ${i + 1}/${iterations}:`, speed.toFixed(2), 'Mbps');
-          }
-          
-          // Add a small delay between tests
-          if (i < iterations - 1) {
-            await delay(100);
-          }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            if (signal.aborted) throw error; // Only rethrow if main controller was aborted
-            console.warn(`Download iteration ${i + 1} timed out`);
-          } else {
-            console.warn(`Download iteration ${i + 1} failed:`, error);
-          }
-          // Continue with next iteration on error
-          continue;
-        }
-      }
-
-      const validSpeeds = speeds.filter(speed => speed > 0);
-      if (validSpeeds.length === 0) {
-        throw new Error('All download tests failed');
-      }
-
-      // Calculate average speed, excluding outliers
-      const sortedSpeeds = [...validSpeeds].sort((a, b) => a - b);
-      const q1Index = Math.floor(sortedSpeeds.length * 0.25);
-      const q3Index = Math.floor(sortedSpeeds.length * 0.75);
-      const iqr = sortedSpeeds[q3Index] - sortedSpeeds[q1Index];
-      const lowerBound = sortedSpeeds[q1Index] - 1.5 * iqr;
-      const upperBound = sortedSpeeds[q3Index] + 1.5 * iqr;
-      
-      const filteredSpeeds = sortedSpeeds.filter(speed => speed >= lowerBound && speed <= upperBound);
-      const averageSpeed = filteredSpeeds.reduce((a, b) => a + b, 0) / filteredSpeeds.length;
-      
-      console.log('Download test completed. Average speed:', averageSpeed.toFixed(2), 'Mbps');
-      console.log('Valid tests:', validSpeeds.length, 'of', iterations);
-      console.log('Tests after outlier removal:', filteredSpeeds.length);
-      return averageSpeed;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Download measurement aborted');
-        return 0;
-      }
-      console.error('Download measurement failed:', error);
-      throw error;
-    }
-  }, [setCurrentSpeed, singleDownloadTest, delay]);
-
-  // Optimized upload measurement with multiple iterations
-  const measureUpload = useCallback(async (onProgress: (progress: number) => void): Promise<number> => {
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const iterations = 50;
-    const speeds: number[] = [];
-    
-    try {
-      console.log('Starting upload test with', iterations, 'iterations...');
-      
-      // Create test data once - 5MB for more accurate measurement
-      const size = 5 * 1024 * 1024;
-      const data = new Uint8Array(size);
-      for (let i = 0; i < size; i++) {
-        data[i] = Math.floor(Math.random() * 256);
-      }
-      const blob = new Blob([data]);
-
-      for (let i = 0; i < iterations; i++) {
-        try {
-          // Create a new controller for each test
-          const testController = new AbortController();
-          const testSignal = testController.signal;
-          
-          // Add a timeout for each test
-          const timeoutId = setTimeout(() => testController.abort(), 10000); // 10 second timeout
-          
-          const speed = await singleUploadTest(blob, testSignal);
-          clearTimeout(timeoutId);
-          
-          if (speed > 0) {
-            speeds.push(speed);
-            setCurrentSpeed(speed);
-            onProgress((i + 1) * (100 / iterations));
-            console.log(`Upload iteration ${i + 1}/${iterations}:`, speed.toFixed(2), 'Mbps');
-          }
-          
-          // Add a small delay between tests
-          if (i < iterations - 1) {
-            await delay(100);
-          }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            if (signal.aborted) throw error; // Only rethrow if main controller was aborted
-            console.warn(`Upload iteration ${i + 1} timed out`);
-          } else {
-            console.warn(`Upload iteration ${i + 1} failed:`, error);
-          }
-          // Continue with next iteration on error
-          continue;
-        }
-      }
-
-      const validSpeeds = speeds.filter(speed => speed > 0);
-      if (validSpeeds.length === 0) {
-        throw new Error('All upload tests failed');
-      }
-
-      // Calculate average speed, excluding outliers
-      const sortedSpeeds = [...validSpeeds].sort((a, b) => a - b);
-      const q1Index = Math.floor(sortedSpeeds.length * 0.25);
-      const q3Index = Math.floor(sortedSpeeds.length * 0.75);
-      const iqr = sortedSpeeds[q3Index] - sortedSpeeds[q1Index];
-      const lowerBound = sortedSpeeds[q1Index] - 1.5 * iqr;
-      const upperBound = sortedSpeeds[q3Index] + 1.5 * iqr;
-      
-      const filteredSpeeds = sortedSpeeds.filter(speed => speed >= lowerBound && speed <= upperBound);
-      const averageSpeed = filteredSpeeds.reduce((a, b) => a + b, 0) / filteredSpeeds.length;
-      
-      console.log('Upload test completed. Average speed:', averageSpeed.toFixed(2), 'Mbps');
-      console.log('Valid tests:', validSpeeds.length, 'of', iterations);
-      console.log('Tests after outlier removal:', filteredSpeeds.length);
-      return averageSpeed;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Upload measurement aborted');
-        return 0;
-      }
-      console.error('Upload measurement failed:', error);
-      throw error;
-    }
-  }, [setCurrentSpeed, singleUploadTest, delay]);
 
   // Debounced function to update results to prevent too many re-renders
   const updateResults = useCallback(debounce((newResults: Partial<Results>) => {
