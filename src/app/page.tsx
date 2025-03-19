@@ -38,7 +38,7 @@ const initialResults: Results = {
 
 // Constants for test configuration
 const TEST_CONFIG = {
-  ITERATIONS: 20,
+  ITERATIONS: 10,
   TIMEOUT_MS: 10000,
   DELAY_BETWEEN_TESTS_MS: 100,
   UPLOAD_SIZE: 1 * 1024 * 1024, // 1MB
