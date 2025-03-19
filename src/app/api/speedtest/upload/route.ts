@@ -1,41 +1,22 @@
-// import { NextResponse } from 'next/server';
-
-// export async function POST(request: Request) {
-//   const startTime = Date.now();
-
-//   try {
-//     const data = await request.arrayBuffer();
-//     const endTime = Date.now();
-//     const duration = endTime - startTime;
-//     const bytes = data.byteLength;
-//     const bitsPerSecond = (bytes * 8) / (duration / 1000);
-//     const mbps = bitsPerSecond / (1024 * 1024);
-
-//     return NextResponse.json({
-//       status: 'ok',
-//       size: bytes,
-//       duration: duration,
-//       speed: mbps,
-//     });
-//   } catch (error) {
-//     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
-//   }
-// }
-
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   const startTime = Date.now();
 
   try {
+    // Use more efficient stream processing
     let bytesReceived = 0;
     const reader = request.body?.getReader();
 
-    if (reader) {
-      let chunk;
-      while (!(chunk = await reader.read()).done) {
-        bytesReceived += chunk.value.length;
-      }
+    if (!reader) {
+      throw new Error('Request body stream not available');
+    }
+
+    // Process data in chunks
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesReceived += value.length;
     }
 
     const endTime = Date.now();
@@ -43,14 +24,38 @@ export async function POST(request: Request) {
     const bitsPerSecond = (bytesReceived * 8) / duration;
     const mbps = bitsPerSecond / (1024 * 1024);
 
+    // Return detailed metrics for better analysis
     return NextResponse.json({
-      status: 'ok',
+      status: 'success',
       size: bytesReceived,
       duration: duration,
       speed: mbps,
+      timestamp: endTime,
+      metrics: {
+        bytesReceived,
+        durationMs: endTime - startTime,
+        bitsPerSecond,
+        mbps,
+      }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    console.error('Upload test failed:', error);
+    return NextResponse.json({ 
+      error: 'Upload test failed', 
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: Date.now()
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    });
   }
 }
 
