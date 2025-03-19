@@ -1,14 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import SpeedMeter from '@/components/SpeedMeter';
 import TestResults from '@/components/TestResults';
+
+interface Results {
+  download: number;
+  upload: number;
+  ping: number;
+  ip: string;
+  location: {
+    city: string;
+    country: string;
+    region: string;
+  };
+  jitter: number;
+  latency: number;
+  isp: string;
+}
 
 export default function Home() {
   const [testing, setTesting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentSpeed, setCurrentSpeed] = useState(0);
-  const [results, setResults] = useState({
+  const [results, setResults] = useState<Results>({
     download: 0,
     upload: 0,
     ping: 0,
@@ -129,7 +144,7 @@ export default function Home() {
         // Update results after every 5 measurements
         if ((i + 1) % 5 === 0) {
           const currentAvgDownload = totalSpeed / (i + 1);
-          setResults(prev => ({
+          setResults((prev: Results) => ({
             ...prev,
             download: currentAvgDownload,
             ping: avgPing,
@@ -162,7 +177,7 @@ export default function Home() {
         // Update results after every 5 measurements
         if ((i + 1) % 5 === 0) {
           const currentAvgUpload = totalSpeed / (i + 1);
-          setResults(prev => ({
+          setResults((prev: Results) => ({
             ...prev,
             upload: currentAvgUpload,
           }));
@@ -171,7 +186,7 @@ export default function Home() {
       const avgUpload = totalSpeed / 50;
 
       // Final results update
-      setResults(prev => ({
+      setResults((prev: Results) => ({
         ...prev,
         download: avgDownload,
         upload: avgUpload,
@@ -201,42 +216,62 @@ export default function Home() {
     }
   };
 
+  const stopTest = () => {
+    // Implementation of stopTest function
+  };
+
   return (
     <main className="min-h-screen bg-gray-900 text-white antialiased p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Main Title */}
+        <h1 className="text-4xl md:text-5xl font-bold text-center mb-8 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          Internet Speed Testing
+        </h1>
+
         {/* Responsive Layout Container */}
         <div className="flex flex-col md:flex-row md:space-x-8 space-y-8 md:space-y-0">
-          {/* Left Side - Speed Meter */}
+          {/* Left Side - Speed Meter and Button */}
           <div className="w-full md:w-1/2">
-            <SpeedMeter
-              progress={progress}
-              currentSpeed={currentSpeed}
-              testing={testing}
-            />
-            
-            {/* Test Button */}
-            <div className="mt-8 flex justify-center">
-              <button
-                onClick={startTest}
-                disabled={testing}
-                className={`px-8 py-3 rounded-lg text-lg font-semibold transition-all duration-300
-                  ${testing 
-                    ? 'bg-gray-600 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
-                  }`}
-              >
-                {testing ? 'Testing...' : 'Start Test'}
-              </button>
+            <div className="h-full relative p-8 bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-white/10 flex flex-col">
+              <SpeedMeter
+                progress={progress}
+                currentSpeed={currentSpeed}
+                testing={testing}
+                results={results}
+              />
+              
+              {/* Test Button */}
+              <div className="mt-auto pt-8">
+                {!testing ? (
+                  <button
+                    onClick={startTest}
+                    className="w-full px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300
+                      bg-blue-600 hover:bg-blue-700 active:scale-95 hover:shadow-lg"
+                  >
+                    Start Test
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopTest}
+                    className="w-full px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300
+                      bg-red-600 hover:bg-red-700 active:scale-95 hover:shadow-lg"
+                  >
+                    Stop Test
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Right Side - Test Results */}
           <div className="w-full md:w-1/2">
-            <TestResults
-              results={results}
-              testing={testing}
-              setError={setError}
-            />
+            <div className="h-full relative p-8 bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-white/10">
+              <TestResults
+                results={results}
+                testing={testing}
+                setError={setError}
+              />
+            </div>
           </div>
         </div>
 
