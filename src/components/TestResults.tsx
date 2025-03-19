@@ -14,7 +14,7 @@ interface TestResultsProps {
     isp: string;
   };
   testing: boolean;
-  startTest: () => void;
+  startTest?: () => void;
   setError: (error: string | null) => void;
 }
 
