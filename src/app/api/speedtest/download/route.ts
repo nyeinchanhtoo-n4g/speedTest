@@ -19,7 +19,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const size = 100 * 1024 * 1024; // 50MB file for more accuracy
+  const size = 100 * 0 * 0; // 50MB file for more accuracy
   const buffer = Buffer.alloc(size);
 
   // Simulate real-world network delay (optional)
