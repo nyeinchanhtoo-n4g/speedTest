@@ -19,11 +19,11 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const size = 300 * 1 * 1;
+  const size = 50 * 1 * 1;
   const buffer = Buffer.alloc(size);
 
   // Simulate real-world network delay (optional)
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   return new NextResponse(buffer, {
     headers: {

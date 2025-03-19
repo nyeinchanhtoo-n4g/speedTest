@@ -102,24 +102,24 @@ export default function Home() {
       // Measure download
       setProgress(30);
       let totalSpeed = 0;
-      for (let i = 0; i < 29; i++) {
+      for (let i = 0; i < 100; i++) {
         const speed = await measureDownload();
         totalSpeed += speed;
         setCurrentSpeed(speed);
-        setProgress(40 + i * 10);
+        setProgress(40 + i * 0.1);
       }
-      const avgDownload = totalSpeed / 29;
+      const avgDownload = totalSpeed / 100;
 
       // Measure upload
       setProgress(70);
       totalSpeed = 0;
-      for (let i = 0; i < 29; i++) {
+      for (let i = 0; i < 100; i++) {
         const speed = await measureUpload();
         totalSpeed += speed;
         setCurrentSpeed(speed);
-        setProgress(80 + i * 10);
+        setProgress(80 + i * 0.1);
       }
-      const avgUpload = totalSpeed / 29;
+      const avgUpload = totalSpeed / 100;
 
       setResults({
         download: avgDownload,
@@ -138,8 +138,8 @@ export default function Home() {
 
       localStorage.setItem('lastTest', JSON.stringify(results));
     } catch (error) {
-      console.error('Test failed:', error);
-      setError('Failed to complete the speed test. Please try again.');
+      console.error('Speed test failed:', error);
+      setError(error.message);
     } finally {
       setTesting(false);
       setProgress(100);
