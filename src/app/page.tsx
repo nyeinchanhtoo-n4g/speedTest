@@ -139,7 +139,11 @@ export default function Home() {
       localStorage.setItem('lastTest', JSON.stringify(results));
     } catch (error) {
       console.error('Speed test failed:', error);
-      setError(error.message);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     } finally {
       setTesting(false);
       setProgress(100);
