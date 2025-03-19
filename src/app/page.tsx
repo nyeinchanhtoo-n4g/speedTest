@@ -114,14 +114,36 @@ export default function Home() {
       const avgPing = pings.reduce((a, b) => a + b, 0) / pings.length;
       const jitter = Math.max(...pings) - Math.min(...pings);
 
-      // Measure download
+      // Measure download and update results immediately
       setProgress(30);
       let totalSpeed = 0;
+      let downloadResults = [];
+      
       for (let i = 0; i < 100; i++) {
         const speed = await measureDownload();
         totalSpeed += speed;
+        downloadResults.push(speed);
         setCurrentSpeed(speed);
         setProgress(40 + i * 0.1);
+        
+        // Update results after every 10 measurements
+        if ((i + 1) % 10 === 0) {
+          const currentAvgDownload = totalSpeed / (i + 1);
+          setResults(prev => ({
+            ...prev,
+            download: currentAvgDownload,
+            ping: avgPing,
+            ip: ipData.ip,
+            location: {
+              city: ipData.city || 'Unknown',
+              country: ipData.country || 'Unknown',
+              region: ipData.region || 'Unknown',
+            },
+            jitter: jitter,
+            latency: avgPing,
+            isp: ipData.isp || 'Unknown',
+          }));
+        }
       }
       const avgDownload = totalSpeed / 100;
 
@@ -201,6 +223,7 @@ export default function Home() {
 
           <TestResults
             results={results}
+            testing={testing}
             startTest={startTest}
             setError={setError}
           />

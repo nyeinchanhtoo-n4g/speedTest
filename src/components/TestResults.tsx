@@ -13,12 +13,14 @@ interface TestResultsProps {
     latency: number;
     isp: string;
   };
+  testing: boolean;
   startTest: () => void;
   setError: (error: string | null) => void;
 }
 
 export default function TestResults({
   results,
+  testing,
   startTest,
   setError,
 }: TestResultsProps) {
@@ -47,8 +49,11 @@ export default function TestResults({
             </svg>
           </div>
           <div className="text-3xl font-bold text-green-500">
-            {results.download.toFixed(2)}
-            <span className="text-sm text-gray-400 ml-1">Mbps</span>
+            {testing ? (
+              <span className="text-blue-400">{results.download.toFixed(2)} Mbps</span>
+            ) : (
+              `${results.download.toFixed(2)} Mbps`
+            )}
           </div>
         </div>
 
