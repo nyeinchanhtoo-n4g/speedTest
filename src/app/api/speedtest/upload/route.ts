@@ -12,15 +12,25 @@ export async function POST(request: Request) {
       throw new Error('Request body stream not available');
     }
 
-    // Process data in chunks
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bytesReceived += value.length;
+    try {
+      // Process data in chunks
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytesReceived += value.length;
+      }
+    } finally {
+      reader.releaseLock();
     }
 
     const endTime = Date.now();
     const duration = (endTime - startTime) / 1000; // Convert ms to seconds
+
+    // Validate measurements
+    if (duration <= 0 || bytesReceived <= 0) {
+      throw new Error('Invalid measurement values');
+    }
+
     const bitsPerSecond = (bytesReceived * 8) / duration;
     const mbps = bitsPerSecond / (1024 * 1024);
 
@@ -34,6 +44,8 @@ export async function POST(request: Request) {
       metrics: {
         bytesReceived,
         durationMs: endTime - startTime,
+        startTime,
+        endTime,
         bitsPerSecond,
         mbps,
       }

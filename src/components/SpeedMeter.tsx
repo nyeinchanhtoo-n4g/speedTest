@@ -3,7 +3,8 @@
 import React, { memo } from 'react';
 
 interface SpeedMeterProps {
-  progress: number;
+  downloadProgress: number;
+  uploadProgress: number;
   currentSpeed: number;
   testing: boolean;
   results: {
@@ -14,7 +15,7 @@ interface SpeedMeterProps {
 }
 
 // Optimize the SpeedMeter component with memoization to prevent unnecessary re-renders
-const SpeedMeter = memo(function SpeedMeter({ progress, currentSpeed, testing, results }: SpeedMeterProps) {
+const SpeedMeter = memo(function SpeedMeter({ downloadProgress, uploadProgress, currentSpeed, testing, results }: SpeedMeterProps) {
   // Format the current speed with proper decimal places based on the value
   const formattedSpeed = currentSpeed < 1 
     ? currentSpeed.toFixed(3) 
@@ -22,14 +23,27 @@ const SpeedMeter = memo(function SpeedMeter({ progress, currentSpeed, testing, r
       ? currentSpeed.toFixed(2) 
       : currentSpeed.toFixed(1);
 
-  return (
-    <div className="relative p-8 bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-white/10">
-      <h2 className="text-2xl font-bold text-center text-white mb-8">TESTING SPEED</h2>
+  // Determine which test is running
+  const isDownloadTesting = testing && downloadProgress > 0 && downloadProgress < 100;
+  const isUploadTesting = testing && uploadProgress > 0 && uploadProgress < 100;
 
+  // Calculate iteration number
+  const getCurrentIteration = (progress: number): number => {
+    return Math.min(50, Math.ceil(progress / 2));
+  };
+
+  return (
+    <div className="w-full">
       {/* Speed Display with enhanced animation */}
       <div className="text-center mb-8">
         <div 
-          className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent transition-all duration-300"
+          className={`text-6xl font-bold transition-all duration-300 ${
+            isDownloadTesting 
+              ? 'bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent'
+              : isUploadTesting
+                ? 'bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent'
+                : 'text-white'
+          }`}
           style={{ transform: testing ? 'scale(1.05)' : 'scale(1)' }}
         >
           {formattedSpeed}
@@ -37,33 +51,72 @@ const SpeedMeter = memo(function SpeedMeter({ progress, currentSpeed, testing, r
         <div className="text-gray-400 text-xl mt-2">Mbps</div>
       </div>
 
-      {/* Enhanced Progress Bar with smoother animation */}
-      <div className="w-full h-4 bg-gray-700 rounded-full overflow-hidden mb-4">
-        <div 
-          className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-300 ease-out"
-          style={{ 
-            width: `${progress}%`,
-            boxShadow: testing ? '0 0 10px rgba(59, 130, 246, 0.5)' : 'none'
-          }}
-        />
-      </div>
+      {/* Download Progress Bar */}
+      {isDownloadTesting && (
+        <div className="mb-4 animate-fadeIn">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-gray-400">
+              Download Test ({getCurrentIteration(downloadProgress)}/50)
+            </span>
+            <span className="text-sm text-blue-400">{Math.round(downloadProgress)}%</span>
+          </div>
+          <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-300 ease-out"
+              style={{ 
+                width: `${downloadProgress}%`,
+                boxShadow: '0 0 10px rgba(59, 130, 246, 0.5)'
+              }}
+            />
+          </div>
+        </div>
+      )}
 
-      {/* Testing Status with enhanced animation */}
+      {/* Upload Progress Bar */}
+      {isUploadTesting && (
+        <div className="mb-4 animate-fadeIn">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-gray-400">
+              Upload Test ({getCurrentIteration(uploadProgress)}/50)
+            </span>
+            <span className="text-sm text-purple-400">{Math.round(uploadProgress)}%</span>
+          </div>
+          <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300 ease-out"
+              style={{ 
+                width: `${uploadProgress}%`,
+                boxShadow: '0 0 10px rgba(147, 51, 234, 0.5)'
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Testing Status */}
       <div className="text-center mb-4">
         <div className={`font-semibold text-lg transition-all duration-300 ${
-          testing ? 'text-blue-400' : 'text-gray-400'
+          isDownloadTesting 
+            ? 'text-blue-400' 
+            : isUploadTesting 
+              ? 'text-purple-400' 
+              : 'text-gray-400'
         }`}>
-          {testing 
-            ? `Testing... ${Math.round(progress)}%` 
-            : progress === 100 
-              ? 'Test Complete' 
-              : 'Ready to start test'
+          {isDownloadTesting
+            ? 'Running Download Tests...'
+            : isUploadTesting
+              ? 'Running Upload Tests...'
+              : testing
+                ? 'Preparing Test...'
+                : downloadProgress === 100 && uploadProgress === 100
+                  ? 'Test Complete'
+                  : 'Ready to start test'
           }
         </div>
       </div>
 
       {/* Additional information */}
-      {!testing && progress === 100 && (
+      {!testing && downloadProgress === 100 && uploadProgress === 100 && (
         <div className="text-center text-sm text-gray-500 animate-fadeIn">
           Click "Start Test" to run a new test
         </div>

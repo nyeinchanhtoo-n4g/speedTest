@@ -18,11 +18,11 @@
 
 import { NextResponse } from 'next/server';
 
-// Optimized download endpoint with larger data size and better error handling
+// Optimized download endpoint with appropriate data size
 export async function GET() {
   try {
-    // Generate 5MB of random data for more accurate speed measurement
-    const size = 5 * 1024 * 1024; // 5MB in bytes
+    // Generate 300KB of random data for speed measurement
+    const size = 300 * 1024; // 300KB in bytes
     
     // Use a more efficient method to generate random data
     const chunkSize = 1024 * 64; // 64KB chunks for better memory efficiency
