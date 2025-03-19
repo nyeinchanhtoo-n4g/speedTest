@@ -202,46 +202,50 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white antialiased">
-      <div className="flex flex-col items-center justify-center p-5">
-        <h1 className="text-3xl font-bold text-center mb-6">
-          Network Speed Test
-        </h1>
-
-        <div className="max-w-lg w-full">
-          <div className="bg-gray-800 rounded-lg p-5 shadow-lg">
+    <main className="min-h-screen bg-gray-900 text-white antialiased p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Responsive Layout Container */}
+        <div className="flex flex-col md:flex-row md:space-x-8 space-y-8 md:space-y-0">
+          {/* Left Side - Speed Meter */}
+          <div className="w-full md:w-1/2">
             <SpeedMeter
               progress={progress}
               currentSpeed={currentSpeed}
               testing={testing}
             />
-
-            <div className="flex flex-col items-center mt-5">
-              {error && <div className="text-red-500 mb-3">{error}</div>}
+            
+            {/* Test Button */}
+            <div className="mt-8 flex justify-center">
               <button
                 onClick={startTest}
                 disabled={testing}
-                className={`
-                  py-2 px-8 rounded-full font-bold transition-all
-                  ${
-                    testing
-                      ? 'bg-gray-700 cursor-not-allowed'
-                      : 'bg-blue-500 hover:bg-blue-600'
-                  }
-                `}
+                className={`px-8 py-3 rounded-lg text-lg font-semibold transition-all duration-300
+                  ${testing 
+                    ? 'bg-gray-600 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                  }`}
               >
                 {testing ? 'Testing...' : 'Start Test'}
               </button>
             </div>
           </div>
 
-          <TestResults
-            results={results}
-            testing={testing}
-            startTest={startTest}
-            setError={setError}
-          />
+          {/* Right Side - Test Results */}
+          <div className="w-full md:w-1/2">
+            <TestResults
+              results={results}
+              testing={testing}
+              setError={setError}
+            />
+          </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500">
+            {error}
+          </div>
+        )}
       </div>
     </main>
   );
