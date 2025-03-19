@@ -36,18 +36,33 @@ export default function Home() {
     }
   };
 
-  const measureDownload = async () => {
+  const measureDownload = async (): Promise<number> => {
     try {
-      const start = Date.now();
+      const startTime = Date.now();
+      
+      // Fetch the data
       const response = await fetch('/api/speedtest/download');
       if (!response.ok) throw new Error('Download failed');
-      const data = await response.arrayBuffer();
-      const end = Date.now();
-      const duration = (end - start) / 1000; // seconds
-      const bytes = data.byteLength;
-      const bits = bytes * 8;
-      const speedMbps = bits / (1024 * 1024) / duration;
-      return speedMbps;
+      
+      // Read the response as a stream
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Stream not available');
+
+      let bytesReceived = 0;
+      
+      // Read the stream chunks
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytesReceived += value.length;
+      }
+
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000; // Convert to seconds
+      const bitsPerSecond = (bytesReceived * 8) / duration;
+      const mbps = bitsPerSecond / (1024 * 1024); // Convert to Mbps
+
+      return mbps;
     } catch (error) {
       console.error('Download measurement failed:', error);
       throw error;

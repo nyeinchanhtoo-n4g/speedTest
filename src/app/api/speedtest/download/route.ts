@@ -19,17 +19,23 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const size = 50 * 1 * 1;
-  const buffer = Buffer.alloc(size);
+  try {
+    // Generate 1MB of random data
+    const size = 1024 * 1024; // 1MB in bytes
+    const data = new Uint8Array(size);
+    for (let i = 0; i < size; i++) {
+      data[i] = Math.floor(Math.random() * 256);
+    }
 
-  // Simulate real-world network delay (optional)
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
-  return new NextResponse(buffer, {
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Length': size.toString(),
-      'Cache-Control': 'no-store',
-    },
-  });
+    // Return the data as a stream
+    return new NextResponse(data, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': size.toString(),
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch (error) {
+    return NextResponse.json({ error: 'Download failed' }, { status: 500 });
+  }
 }
