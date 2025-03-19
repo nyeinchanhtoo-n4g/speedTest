@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Constants for download test configuration
-const DOWNLOAD_SIZE = 50 * 1024 * 1024; // 5MB
+const DOWNLOAD_SIZE = 5 * 1024 * 1024; // 5MB
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks
 const BUFFER_POOL = new Map<number, Uint8Array>();
 
