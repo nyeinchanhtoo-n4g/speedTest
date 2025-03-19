@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 // Constants for upload test configuration
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB limit
-const MIN_UPLOAD_SIZE = 64 * 1024; // 64KB minimum
+const MIN_UPLOAD_SIZE = 1 * 1024; // 1MB minimum
 
 // Helper function to calculate speed metrics
 function calculateMetrics(bytesReceived: number, startTime: number, endTime: number) {
