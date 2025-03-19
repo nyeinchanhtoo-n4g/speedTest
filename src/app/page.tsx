@@ -102,24 +102,24 @@ export default function Home() {
       // Measure download
       setProgress(30);
       let totalSpeed = 0;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 29; i++) {
         const speed = await measureDownload();
         totalSpeed += speed;
         setCurrentSpeed(speed);
         setProgress(40 + i * 10);
       }
-      const avgDownload = totalSpeed / 3;
+      const avgDownload = totalSpeed / 29;
 
       // Measure upload
       setProgress(70);
       totalSpeed = 0;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 29; i++) {
         const speed = await measureUpload();
         totalSpeed += speed;
         setCurrentSpeed(speed);
         setProgress(80 + i * 10);
       }
-      const avgUpload = totalSpeed / 3;
+      const avgUpload = totalSpeed / 29;
 
       setResults({
         download: avgDownload,
