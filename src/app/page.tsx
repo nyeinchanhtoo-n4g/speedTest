@@ -38,6 +38,7 @@ export default function Home() {
     isp: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [shouldStop, setShouldStop] = useState(false);
 
   const measurePing = async () => {
     try {
@@ -111,6 +112,7 @@ export default function Home() {
     setTesting(true);
     setProgress(0);
     setError(null);
+    setShouldStop(false);
 
     try {
       // Get IP data
@@ -119,6 +121,18 @@ export default function Home() {
         throw new Error('Failed to fetch IP data');
       }
       const ipData = await ipResponse.json();
+      
+      // Update results with IP data
+      setResults(prev => ({
+        ...prev,
+        ip: ipData.ip,
+        location: {
+          city: ipData.city || 'Unknown',
+          country: ipData.country || 'Unknown',
+          region: ipData.region || 'Unknown',
+        },
+        isp: ipData.isp || ipData.org || 'Unknown', // Try both isp and org fields
+      }));
 
       // Measure ping
       setProgress(10);
@@ -148,7 +162,6 @@ export default function Home() {
             ...prev,
             download: currentAvgDownload,
             ping: avgPing,
-            ip: ipData.ip,
             location: {
               city: ipData.city || 'Unknown',
               country: ipData.country || 'Unknown',
@@ -156,7 +169,7 @@ export default function Home() {
             },
             jitter: jitter,
             latency: avgPing,
-            isp: ipData.isp || 'Unknown',
+            isp: ipData.isp || ipData.org || 'Unknown',
           }));
         }
       }
@@ -191,7 +204,6 @@ export default function Home() {
         download: avgDownload,
         upload: avgUpload,
         ping: avgPing,
-        ip: ipData.ip,
         location: {
           city: ipData.city || 'Unknown',
           country: ipData.country || 'Unknown',
@@ -199,12 +211,12 @@ export default function Home() {
         },
         jitter: jitter,
         latency: avgPing,
-        isp: ipData.isp || 'Unknown',
+        isp: ipData.isp || ipData.org || 'Unknown',
       }));
 
       localStorage.setItem('lastTest', JSON.stringify(results));
     } catch (error) {
-      console.error('Speed test failed:', error);
+      console.error('Test failed:', error);
       if (error instanceof Error) {
         setError(error.message);
       } else {
@@ -212,6 +224,7 @@ export default function Home() {
       }
     } finally {
       setTesting(false);
+      setShouldStop(false);
       setProgress(100);
     }
   };
