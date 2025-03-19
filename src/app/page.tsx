@@ -38,10 +38,10 @@ const initialResults: Results = {
 
 // Constants for test configuration
 const TEST_CONFIG = {
-  ITERATIONS: 50,
+  ITERATIONS: 20,
   TIMEOUT_MS: 10000,
   DELAY_BETWEEN_TESTS_MS: 100,
-  UPLOAD_SIZE: 5 * 1024 * 1024, // 5MB
+  UPLOAD_SIZE: 3 * 1024 * 1024, // 3MB
   MIN_VALID_SPEED: 0.1, // 0.1 Mbps
   MAX_REASONABLE_SPEED: 10000, // 10 Gbps
   IQR_MULTIPLIER: 1.5, // For outlier detection
