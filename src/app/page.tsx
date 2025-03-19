@@ -119,15 +119,15 @@ export default function Home() {
       let totalSpeed = 0;
       let downloadResults = [];
       
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 50; i++) {
         const speed = await measureDownload();
         totalSpeed += speed;
         downloadResults.push(speed);
         setCurrentSpeed(speed);
-        setProgress(40 + i * 0.1);
+        setProgress(40 + i * 0.2);
         
-        // Update results after every 10 measurements
-        if ((i + 1) % 10 === 0) {
+        // Update results after every 5 measurements
+        if ((i + 1) % 5 === 0) {
           const currentAvgDownload = totalSpeed / (i + 1);
           setResults(prev => ({
             ...prev,
@@ -145,20 +145,34 @@ export default function Home() {
           }));
         }
       }
-      const avgDownload = totalSpeed / 100;
+      const avgDownload = totalSpeed / 50;
 
       // Measure upload
       setProgress(70);
       totalSpeed = 0;
-      for (let i = 0; i < 100; i++) {
+      let uploadResults = [];
+      
+      for (let i = 0; i < 50; i++) {
         const speed = await measureUpload();
         totalSpeed += speed;
+        uploadResults.push(speed);
         setCurrentSpeed(speed);
-        setProgress(80 + i * 0.1);
+        setProgress(80 + i * 0.2);
+        
+        // Update results after every 5 measurements
+        if ((i + 1) % 5 === 0) {
+          const currentAvgUpload = totalSpeed / (i + 1);
+          setResults(prev => ({
+            ...prev,
+            upload: currentAvgUpload,
+          }));
+        }
       }
-      const avgUpload = totalSpeed / 100;
+      const avgUpload = totalSpeed / 50;
 
-      setResults({
+      // Final results update
+      setResults(prev => ({
+        ...prev,
         download: avgDownload,
         upload: avgUpload,
         ping: avgPing,
@@ -171,7 +185,7 @@ export default function Home() {
         jitter: jitter,
         latency: avgPing,
         isp: ipData.isp || 'Unknown',
-      });
+      }));
 
       localStorage.setItem('lastTest', JSON.stringify(results));
     } catch (error) {

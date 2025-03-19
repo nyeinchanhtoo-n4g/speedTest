@@ -76,8 +76,11 @@ export default function TestResults({
             </svg>
           </div>
           <div className="text-3xl font-bold text-blue-500">
-            {results.upload.toFixed(2)}
-            <span className="text-sm text-gray-400 ml-1">Mbps</span>
+            {testing ? (
+              <span className="text-blue-400">{results.upload.toFixed(2)} Mbps</span>
+            ) : (
+              `${results.upload.toFixed(2)} Mbps`
+            )}
           </div>
         </div>
 

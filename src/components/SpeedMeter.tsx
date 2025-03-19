@@ -193,6 +193,30 @@ export default function SpeedMeter({
           </div>
         </div>
       </div>
+
+      {/* Speed Display */}
+      <div className="text-center mb-4">
+        <div className="text-4xl font-bold text-blue-500">
+          {currentSpeed.toFixed(2)}
+        </div>
+        <div className="text-gray-400">Mbps</div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-blue-500 transition-all duration-300"
+          style={{ 
+            width: `${progress}%`,
+            transition: 'width 0.3s ease-in-out'
+          }}
+        />
+      </div>
+
+      {/* Progress Percentage */}
+      <div className="text-center mt-2 text-sm text-gray-400">
+        {testing ? `Testing... ${Math.round(progress)}%` : 'Ready to test'}
+      </div>
     </div>
   );
 }
